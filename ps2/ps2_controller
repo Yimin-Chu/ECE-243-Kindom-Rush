@@ -1,0 +1,54 @@
+#include <stdint.h>
+#include <stdio.h>
+
+// If using the single PS/2 port on the DE1-SoC:
+#define PS2_DATA_REG 0xFF200100
+#define PS2_CONTROL_REG 0xFF200104
+
+// If using the dual PS/2 port (Y-splitter), comment out the above lines
+// and uncomment these instead:
+// #define PS2_DATA_REG    0xFF200108
+// #define PS2_CONTROL_REG 0xFF20010C
+
+int main(void) {
+  // Point to the PS/2 Data register
+  volatile int *PS2_ptr = (int *)PS2_DATA_REG;
+
+  int PS2_data;
+  int RAVAIL;
+  char byte1 = 0, byte2 = 0, byte3 = 0;
+
+  printf("PS/2 Keyboard polling demo started.\n");
+
+  while (1) {
+    /*
+     * Reading from the PS/2 Data register:
+     * Bits  [31:16] = RAVAIL (number of bytes in FIFO)
+     * Bits  [7:0]   = the most recent data byte read from FIFO
+     */
+    PS2_data = *PS2_ptr;
+    RAVAIL = (PS2_data & 0xFFFF0000) >> 16;  // extract the RAVAIL field
+
+    // If there is at least one byte in the FIFO, capture it
+    if (RAVAIL > 0) {
+      // Shift the previously received bytes
+      byte1 = byte2;
+      byte2 = byte3;
+
+      // Read the newest byte (lower 8 bits)
+      byte3 = (char)(PS2_data & 0xFF);
+
+      // For debugging, print out the three most recent scancodes
+      printf("Scancodes: %02X %02X %02X\n", (unsigned char)byte1,
+             (unsigned char)byte2, (unsigned char)byte3);
+
+      // ------------------------------------------------------------
+      // Here, you can add logic to interpret scancodes, detect
+      // key presses vs. releases (0xF0), extended codes (0xE0), etc.
+      // ------------------------------------------------------------
+    }
+  }
+
+  // Normally you would never get here in an endless loop
+  return 0;
+}
