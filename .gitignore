@@ -1,3 +1,4 @@
 .vscode/settings.json
 .vscode/launch.json
 .vscode/c_cpp_properties.json
+video_output/address_map_nios_v.h
