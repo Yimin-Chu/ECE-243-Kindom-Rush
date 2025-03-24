@@ -1,40 +1,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
-#include <time.h>  // 可选，用于调试
-#include <stdio.h> // 可选，用于调试
+#include <time.h>
 
-// --------------------------------------
-// ========== 16-bit Interval Timer (在32位地址空间) ==========
-// 0xFF202000 -> Status (16位, bits: RUN=0, TO=1, ITO=2, CONT=3, START=4, STOP=5, …)
-// 0xFF202004 -> Control
-// 0xFF202008 -> Counter start (low)
-// 0xFF20200C -> Counter start (high)
-// 0xFF202010 -> Counter snapshot (low)
-// 0xFF202014 -> Counter snapshot (high)
-// --------------------------------------
-#define TIMER_BASE 0xFF202000
-
-// 每个寄存器 16 位，但在地址空间中以 4 字节对齐
-#define TIMER_STATUS (*(volatile unsigned short *)(TIMER_BASE + 0x0))
-#define TIMER_CONTROL (*(volatile unsigned short *)(TIMER_BASE + 0x4))
-#define TIMER_START_LO (*(volatile unsigned short *)(TIMER_BASE + 0x8))
-#define TIMER_START_HI (*(volatile unsigned short *)(TIMER_BASE + 0xC))
-#define TIMER_SNAP_LO (*(volatile unsigned short *)(TIMER_BASE + 0x10))
-#define TIMER_SNAP_HI (*(volatile unsigned short *)(TIMER_BASE + 0x14))
-
-// Status/Control位的掩码（与截图中一致）
-#define BIT_RUN (1 << 0)   // bit0: RUN (只读, 1=正在运行)
-#define BIT_TO (1 << 1)    // bit1: TO (溢出标志)
-#define BIT_ITO (1 << 2)   // bit2: ITO (是否使能中断)
-#define BIT_CONT (1 << 3)  // bit3: CONT (连续模式)
-#define BIT_START (1 << 4) // bit4: START
-#define BIT_STOP (1 << 5)  // bit5: STOP
-// 其余位在截图中显示为 unused
-
-// --------------------------------------
-// 全局像素缓冲区指针及双缓冲区定义
-// --------------------------------------
+// 全局像素缓冲区指针
 volatile int pixel_buffer_start;
+
+// 定义双缓冲区（每行 512 个 short int，320 像素加上填充）
 short int Buffer1[240][512];
 short int Buffer2[240][512];
 
@@ -48,6 +19,7 @@ typedef struct
 
 #define NUM_BOXES 5
 #define BOX_SIZE 10 // 盒子尺寸 10x10 像素
+
 Box boxes[NUM_BOXES];
 
 // 用于记录绘制过的像素坐标
@@ -63,58 +35,13 @@ int drawnPixelCount1 = 0;
 Pixel drawnPixels2[MAX_DRAWN_PIXELS]; // 针对 Buffer2
 int drawnPixelCount2 = 0;
 
-// --------------------------------------
-// 计时相关：利用硬件定时器做 1ms 周期溢出
-// --------------------------------------
-static unsigned int ms_counter = 0; // 全局毫秒计数
-
-// ============ 硬件定时器初始化 ============
-// 设置为每 1ms 溢出一次 (大约)，连续模式，启动
-// 假设主频 50MHz => 1 个周期 20ns => 50000 周期 ~ 1ms
-void init_hardware_timer(void)
-{
-    // 1) 先停止定时器
-    TIMER_CONTROL = 0; // 写 0 即可，也可写 BIT_STOP
-    TIMER_STATUS = 0;  // 写 0 清除 TO 等标志
-
-    // 2) 装载值
-    // 16 位定时器一次只能数到 65535
-    // 这里设置 50000 => ~1ms
-    TIMER_START_LO = 50000; // 低 16 位
-    TIMER_START_HI = 0;     // 高 16 位 (若只需16位则设0)
-
-    // 3) 设置连续模式 + 启动
-    // CONT=1, START=1 => (1<<3) | (1<<4)
-    TIMER_CONTROL = BIT_CONT | BIT_START;
-}
-
-// ============ 轮询硬件定时器溢出 ============
-// 每次 TO=1 表示间隔 1ms 已到
-// 主循环中调用本函数，检测到 TO=1 则 ms_counter++
-void poll_timer_and_update_ms(void)
-{
-    if (TIMER_STATUS & BIT_TO) // 如果 TO=1
-    {
-        TIMER_STATUS = 0; // 写 0 清 TO
-        ms_counter++;     // +1ms
-    }
-}
-
-unsigned int get_ms_time(void)
-{
-    return ms_counter;
-}
-
-// --------------------------------------
-// 以下为 VGA 绘制与双缓冲相关函数
-// --------------------------------------
-
+// 绘制一个像素并记录坐标
 void plot_pixel(int x, int y, short int color)
 {
     volatile short int *pixel_addr = (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
     *pixel_addr = color;
 
-    // 根据当前后缓冲区记录绘制的像素
+    // 根据当前缓冲区记录绘制的像素
     if (pixel_buffer_start == (int)&Buffer1)
     {
         if (drawnPixelCount1 < MAX_DRAWN_PIXELS)
@@ -135,7 +62,8 @@ void plot_pixel(int x, int y, short int color)
     }
 }
 
-void clear_drawn_pixels(void)
+// 清除当前后缓冲区上上帧绘制的像素（擦成黑色）
+void clear_drawn_pixels()
 {
     int i;
     if (pixel_buffer_start == (int)&Buffer1)
@@ -149,7 +77,7 @@ void clear_drawn_pixels(void)
         }
         drawnPixelCount1 = 0;
     }
-    else
+    else if (pixel_buffer_start == (int)&Buffer2)
     {
         for (i = 0; i < drawnPixelCount2; i++)
         {
@@ -162,7 +90,7 @@ void clear_drawn_pixels(void)
     }
 }
 
-// Bresenham 画线
+// 用 Bresenham 算法绘制一条直线
 void draw_line(int x0, int y0, int x1, int y1, short int color)
 {
     bool is_steep = (abs(y1 - y0) > abs(x1 - x0));
@@ -189,7 +117,6 @@ void draw_line(int x0, int y0, int x1, int y1, short int color)
     int error = -(deltax / 2);
     int y = y0;
     int y_step = (y0 < y1) ? 1 : -1;
-
     for (int x = x0; x <= x1; x++)
     {
         if (is_steep)
@@ -205,7 +132,7 @@ void draw_line(int x0, int y0, int x1, int y1, short int color)
     }
 }
 
-// 填充矩形（盒子）
+// 绘制一个填充矩形（盒子）
 void draw_filled_box(int x, int y, int width, int height, short int color)
 {
     for (int row = y; row < y + height; row++)
@@ -218,38 +145,36 @@ void draw_filled_box(int x, int y, int width, int height, short int color)
 }
 
 // 等待垂直同步，完成缓冲区交换
-void wait_for_vsync(void)
+void wait_for_vsync()
 {
     volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
-    *pixel_ctrl_ptr = 1; // 请求交换前后缓冲区（vsync）
+    *pixel_ctrl_ptr = 1; // 请求交换缓冲区（vsync）
+    // 等待状态寄存器中 S 位（bit 0）清零
     while (*(pixel_ctrl_ptr + 3) & 0x01)
         ;
 }
 
-// --------------------------------------
-// 主函数：利用上述 16-bit Interval Timer (32-bit地址映射)
-// 实现“每秒多出现一个盒子，从右向左运动”
-// --------------------------------------
 int main(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
     int i;
 
-    // 1) 初始化视频双缓冲
+    // 双缓冲设置：
+    // 将前端缓冲区设置为 Buffer1。
     *(pixel_ctrl_ptr + 1) = (int)&Buffer1;
-    wait_for_vsync();
+    wait_for_vsync(); // 交换缓冲区，此时前端为 Buffer1
     pixel_buffer_start = *pixel_ctrl_ptr;
     clear_drawn_pixels();
 
+    // 将后端缓冲区设置为 Buffer2。
     *(pixel_ctrl_ptr + 1) = (int)&Buffer2;
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     clear_drawn_pixels();
 
-    // 2) 初始化硬件定时器
-    init_hardware_timer();
+    // 初始化随机种子（若只想固定方向，不一定需要随机数，可视需要保留或删除）
+    srand(time(0));
 
-    // 3) 初始化盒子
-    // 为盒子预定义 5 种颜色
+    // 为盒子预定义颜色 (只需要 5 个颜色即可)
     short int colors[NUM_BOXES] = {
         0xF800, // 红
         0x07E0, // 绿
@@ -258,70 +183,69 @@ int main(void)
         0xF81F  // 粉
     };
 
-    // 让盒子初始在屏幕右侧、竖直居中排布
+    // ================
+    // 初始化：右侧竖直排布
+    // ================
     for (i = 0; i < NUM_BOXES; i++)
     {
+        // 初始 x：屏幕最右端附近
         boxes[i].x = 320 - BOX_SIZE - 2;
+        // 竖直方向上，从中间往上下排布
         boxes[i].y = 120 - (NUM_BOXES * (BOX_SIZE + 5)) / 2 + i * (BOX_SIZE + 5);
-        boxes[i].dx = -1; // 从右向左移动
+
+        // 只从右往左移动
+        boxes[i].dx = -1;
         boxes[i].dy = 0;
+
+        // 指定颜色
         boxes[i].color = colors[i];
     }
 
-    // 4) 主循环：每秒增加一个盒子
-    unsigned int prev_second_count = 0;
-    unsigned int activeCount = 0;
-
     while (1)
     {
-        // a) 轮询定时器溢出：每次 TO=1 => +1ms
-        poll_timer_and_update_ms();
-
-        // b) 判断是否过了新的一秒
-        unsigned int current_ms = get_ms_time();
-        unsigned int current_second = current_ms / 1000; // 1000ms = 1s
-        if (current_second > prev_second_count)
-        {
-            prev_second_count = current_second;
-            if (activeCount < NUM_BOXES)
-            {
-                activeCount++;
-            }
-        }
-
-        // c) 清除上一帧像素
+        // 仅擦除上帧在当前后缓冲区上绘制的像素
         clear_drawn_pixels();
 
-        // d) 绘制 activeCount 个盒子
-        for (i = 0; i < activeCount; i++)
+        // 绘制每个填充盒子
+        for (i = 0; i < NUM_BOXES; i++)
         {
             draw_filled_box(boxes[i].x, boxes[i].y, BOX_SIZE, BOX_SIZE, boxes[i].color);
         }
 
-        // 绘制连接相邻盒子中心的线条
-        for (i = 0; i < activeCount - 1; i++)
+        // 绘制连接相邻盒子中心的线条，形成链条
+        for (i = 0; i < NUM_BOXES - 1; i++)
         {
             int x1 = boxes[i].x + BOX_SIZE / 2;
             int y1 = boxes[i].y + BOX_SIZE / 2;
             int x2 = boxes[i + 1].x + BOX_SIZE / 2;
             int y2 = boxes[i + 1].y + BOX_SIZE / 2;
-            draw_line(x1, y1, x2, y2, 0xFFFF);
+            draw_line(x1, y1, x2, y2, 0xFFFF); // 用白色绘制线条
         }
 
-        // e) 更新盒子位置，碰到左边界就停
-        for (i = 0; i < activeCount; i++)
+        // 更新盒子位置
+        for (i = 0; i < NUM_BOXES; i++)
         {
             boxes[i].x += boxes[i].dx;
             boxes[i].y += boxes[i].dy;
+
+            // 若只想让它们停留在屏幕内，不反弹：
+            // 当盒子越过左边界，固定在 x=0，不再继续移动
             if (boxes[i].x < 0)
             {
                 boxes[i].x = 0;
+                // 若完全不想让它们反弹，可以直接让dx=0停止：
                 boxes[i].dx = 0;
             }
+
+            // 上下若不想移动，可以不做任何检测
+            // 若需要限制它们在屏幕内，也可写：
+            // if (boxes[i].y < 0) boxes[i].y = 0;
+            // if (boxes[i].y > 240 - BOX_SIZE) boxes[i].y = 240 - BOX_SIZE;
         }
 
-        // f) 等待垂直同步并交换前后缓冲区
+        // 等待垂直同步并交换前后缓冲区
         wait_for_vsync();
+        // 更新 pixel_buffer_start 指向新的后缓冲区
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     }
 
