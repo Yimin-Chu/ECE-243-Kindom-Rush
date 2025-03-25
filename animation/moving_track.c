@@ -263,6 +263,12 @@ int main(void)
                 boxes[i].dy = 1;
                 boxes[i].dx = 0;
             } // turn down
+            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 20 - BOX_SIZE - 2)
+            {
+                
+                boxes[i].dy = 0;
+                boxes[i].dx = 0;
+            } // reach end
             boxes[i].x += boxes[i].dx;
             boxes[i].y += boxes[i].dy;
 
