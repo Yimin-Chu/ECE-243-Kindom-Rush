@@ -8543,6 +8543,12 @@ short unsigned int background[76800] = {
     0x8CA5, 0x8D26, 0x9445, 0xA425, 0xA425, 0x9BE4, 0x93A4, 0x93C4, 0x93E4,
     0x8BC4, 0x83C6, 0xA530};
 
+//
+
+// Tower 1 (绿色的)
+
+// Tower 2 (红色的)
+
 int main() {
   volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
   pixel_buffer_start = *pixel_ctrl_ptr;
