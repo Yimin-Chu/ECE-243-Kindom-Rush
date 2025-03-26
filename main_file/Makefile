@@ -1,8 +1,8 @@
 INSTALL	:= C:/intelFPGA_lite/23.1std
 
 MAIN	:= m2.c
-HDRS	:= ps2_keyboard.h address_map_nios_v.h
-SRCS	:= ps2_keyboard.c 
+HDRS	:= ps2_keyboard.h plot_image.h address_map_nios_v.h 
+SRCS	:= ps2_keyboard.c plot_image.c
 
 SHELL	:= cmd.exe
 
