@@ -47,7 +47,7 @@ static short int colors[NUM_BOXES] = {
 // 函数声明
 // ========================================
 static void wait_for_vsync(void);
-static void plot_pixel(int x, int y, short int color);
+static void plot_static_pixel(int x, int y, short int color);
 static void draw_line(int x0, int y0, int x1, int y1, short int color);
 static void draw_filled_box(int x, int y, int width, int height, short int color);
 
@@ -93,7 +93,7 @@ void plot_pixel(int x, int y, short int color)
     }
 }
 
-// 清除当前后缓冲区上上帧绘制的像素（擦成黑色）
+// 清除当前后缓冲区上上帧绘制的像素（擦成棕色）
 void clear_drawn_pixels()
 {
     int i;
@@ -104,7 +104,7 @@ void clear_drawn_pixels()
             int x = drawnPixels1[i].x;
             int y = drawnPixels1[i].y;
             volatile short int *pixel_addr = (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
-            *pixel_addr = 0x8A22; // 黑色
+            *pixel_addr = 0x8A22; // 棕色
         }
         drawnPixelCount1 = 0;
     }
@@ -153,7 +153,7 @@ int main(void)
     for (int i = 0; i < NUM_BOXES; i++)
     {
         boxes[i].x = 280 - BOX_SIZE - 2;
-        boxes[i].y = 80 - BOX_SIZE - 2;
+        boxes[i].y = 20 - BOX_SIZE - 2;
         boxes[i].dx = -1;
         boxes[i].dy = 0;
         boxes[i].color = colors[i];
@@ -167,6 +167,8 @@ int main(void)
         // 后端缓冲区（即将绘制到的地址）
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
 
+        clear_drawn_pixels();
+
         // 2) 让新的盒子出现（类似每 60 帧出现一个盒子）
         frame_count++;
         if ((frame_count >= FRAMES_PER_BOX) && (num_draw_box < NUM_BOXES))
@@ -174,7 +176,6 @@ int main(void)
             num_draw_box++;
             frame_count = 0;
         }
-        clear_drawn_pixels();
 
         // 3) 绘制已经出现的盒子
         for (int i = 0; i < num_draw_box; i++)
@@ -196,37 +197,37 @@ int main(void)
         for (int i = 0; i < num_draw_box; i++)
         {
             // 根据需求设置转弯逻辑
-            if (boxes[i].x == 280 - BOX_SIZE - 2 && boxes[i].y == 80 - BOX_SIZE - 2)
+            if (boxes[i].x == 280 - BOX_SIZE - 2 && boxes[i].y == 20 - BOX_SIZE - 2)
             {
                 boxes[i].dy = 0;
                 boxes[i].dx = -1;
             }
-            else if (boxes[i].y == 80 - BOX_SIZE - 2 && boxes[i].x == 200 - BOX_SIZE - 2)
+            else if (boxes[i].y == 20 - BOX_SIZE - 2 && boxes[i].x == 240 - BOX_SIZE - 2)
             {
                 boxes[i].dy = 1;
                 boxes[i].dx = 0;
             }
-            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 200 - BOX_SIZE - 2)
+            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 240 - BOX_SIZE - 2)
             {
                 boxes[i].dy = 0;
                 boxes[i].dx = -1;
             }
-            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 100 - BOX_SIZE - 2)
+            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 150 - BOX_SIZE - 2)
             {
                 boxes[i].dy = -1;
                 boxes[i].dx = 0;
             }
-            else if (boxes[i].y == 20 - BOX_SIZE - 2 && boxes[i].x == 100 - BOX_SIZE - 2)
+            else if (boxes[i].y == 20 - BOX_SIZE - 2 && boxes[i].x == 150 - BOX_SIZE - 2)
             {
                 boxes[i].dy = 0;
                 boxes[i].dx = -1;
             }
-            else if (boxes[i].y == 20 - BOX_SIZE - 2 && boxes[i].x == 20 - BOX_SIZE - 2)
+            else if (boxes[i].y == 20 - BOX_SIZE - 2 && boxes[i].x == 80 - BOX_SIZE - 2)
             {
                 boxes[i].dy = 1;
                 boxes[i].dx = 0;
             }
-            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 20 - BOX_SIZE - 2)
+            else if (boxes[i].y == 200 - BOX_SIZE - 2 && boxes[i].x == 80 - BOX_SIZE - 2)
             {
                 boxes[i].dy = 0;
                 boxes[i].dx = 0; // 到达终点，停止
@@ -263,6 +264,15 @@ static void wait_for_vsync(void)
     while ((*(pixel_ctrl_ptr + 3)) & 0x01)
         ; // 等待 S 位清零
     // 完成后, 前端与后端已交换
+}
+
+// 画一个像素到当前缓冲区 (pixel_buffer_start)
+static void plot_static_pixel(int x, int y, short int color)
+{
+    // 每行 512 个 short；(y << 10) == y * 1024, (x << 1) == x * 2 字节
+    volatile short int *pixel_ptr =
+        (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
+    *pixel_ptr = color;
 }
 
 // Bresenham 画线
@@ -328,7 +338,7 @@ static void plot_image_background(int x, int y)
     {
         for (int col = 0; col < 320; col++)
         {
-            plot_pixel(x + col, y + row, background[row * 320 + col]);
+            plot_static_pixel(x + col, y + row, background[row * 320 + col]);
         }
     }
 }
@@ -341,7 +351,7 @@ static void plot_image_tower1(int x, int y)
     {
         for (int col = 0; col < 26; col++)
         {
-            plot_pixel(x + col, y + row, tower1[row * 26 + col]);
+            plot_static_pixel(x + col, y + row, tower1[row * 26 + col]);
         }
     }
 }
