@@ -5,6 +5,8 @@
 #include "math.h"
 #include "string.h"
 
+// ========== 新增：定义按键基地址(若与工程不符，请改成你系统的地址) ==========
+#define KEY_BASE 0xFF200050
 
 // ========================================
 // 全局像素缓冲区指针（指向当前"前端"正在显示的缓冲区）
@@ -122,12 +124,33 @@ void clear_drawn_pixels()
     }
 }
 
+// ========== 新增：定义 6 个塔(或称静态盒子)，水平放置 ==========
+#define TOWER_COUNT 6
+#define TOWER_SIZE 20 // 可以自行调整“塔”的大小
+static Box towerBoxes[TOWER_COUNT];
+
 // ========================================
 // 主函数
 // ========================================
 int main(void)
 {
     volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
+
+    // (A) 初始化 6 个塔的位置，初始颜色为 0(黑) 等
+    int startX = 20; // 第一个塔的 X
+    int gap = 50;    // 两个塔之间的水平间隔
+    int fixedY = 0;  // 固定在顶端
+    for (int i = 0; i < TOWER_COUNT; i++)
+    {
+        towerBoxes[i].x = startX + i * gap;
+        towerBoxes[i].y = fixedY;
+        towerBoxes[i].dx = 0;
+        towerBoxes[i].dy = 0;
+        towerBoxes[i].color = 0x0000; // 初始黑色
+    }
+
+    // 记录已经点亮了多少个塔(0 ~ 6)
+    int towerActivatedCount = 0;
 
     // 第一步：初始化“双缓冲”——让前端先指向 Buffer1
     // ======= 1) 初始化: 让前端指向 Buffer1 =======
@@ -140,6 +163,19 @@ int main(void)
     plot_image_tower1(100, 200);
     // ... 如果有其他静态元素，也在这儿画
 
+    // 先把 6 个塔(静态盒子)也画出来
+    // 在前端画背景 + 塔1(示例) + 6 个“塔”盒子
+    plot_image_background(0, 0);
+    plot_image_tower1(100, 200);
+    for (int i = 0; i < TOWER_COUNT; i++)
+    {
+        draw_filled_box(towerBoxes[i].x,
+                        towerBoxes[i].y,
+                        TOWER_SIZE,
+                        TOWER_SIZE,
+                        towerBoxes[i].color);
+    }
+
     // ======= 3) 让后端指向 Buffer2 并同样绘制 =======
     *(pixel_ctrl_ptr + 1) = (int)&Buffer2[0];
     pixel_buffer_start = *(pixel_ctrl_ptr + 1); // 现在“后端”=Buffer2
@@ -148,6 +184,16 @@ int main(void)
     plot_image_background(0, 0);
     plot_image_tower1(100, 200);
 
+    // 同样地，先把 6 个塔画出来
+    for (int i = 0; i < TOWER_COUNT; i++)
+    {
+        draw_filled_box(towerBoxes[i].x,
+                        towerBoxes[i].y,
+                        TOWER_SIZE,
+                        TOWER_SIZE,
+                        towerBoxes[i].color);
+    }
+    
     // ========== 初始化盒子 ==========
     // 初始都放在坐标 (280 - BOX_SIZE - 2, 80 - BOX_SIZE - 2) 等位置，
     // dx = -1, dy = 0
@@ -163,12 +209,42 @@ int main(void)
     int num_draw_box = 0; // 当前实际出现的盒子数
     int frame_count = 0;  // 帧计数
 
+     // ========== 新增：KEY 按键指针 ==========
+    volatile int *KEY_ptr = (int *)KEY_BASE;
+    // 用于检测按键“上升沿”：
+    int oldKeyVal = 0; // 记录上一帧的 KEY 状态
+
     while (1)
     {
         // 后端缓冲区（即将绘制到的地址）
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
 
         clear_drawn_pixels();
+
+        // --- (1) 轮询 KEY0 的状态，检测“上升沿” ---
+        int keyVal = *KEY_ptr & 0x1; // 只取 KEY0
+        // 如果上一次是 0 (未按)，这一帧变成 1(按下)，就是上升沿
+        if ((oldKeyVal == 0) && (keyVal == 1))
+        {
+            // 让下一个塔亮起(如果还有的话)
+            if (towerActivatedCount < TOWER_COUNT)
+            {
+                towerBoxes[towerActivatedCount].color = 0xFFFF; // 白色
+                towerActivatedCount++;
+            }
+        }
+        // 记住本帧按键状态
+        oldKeyVal = keyVal;
+
+        // --- (2) 绘制 6 个“塔”(包括点亮的和未点亮的) ---
+        for (int i = 0; i < TOWER_COUNT; i++)
+        {
+            draw_filled_box(towerBoxes[i].x,
+                            towerBoxes[i].y,
+                            TOWER_SIZE,
+                            TOWER_SIZE,
+                            towerBoxes[i].color);
+        }
 
         // 2) 让新的盒子出现（类似每 60 帧出现一个盒子）
         frame_count++;

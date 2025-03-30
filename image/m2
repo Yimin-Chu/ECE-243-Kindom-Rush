@@ -8588,11 +8588,17 @@ short unsigned int tower1[375] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xDF3B, 0xCEB9
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+	
+void initPS2Keyboard();
+void plot_image_intro(int x, int y);
+char readPS2ScanCode();
+void plot_image_background(int x, int y);
+void plot_pixel(int x, int y, short int color);
 
 
 // 全局变量（如果你在别的 .c 文件里定义了，这里就用 extern 声明即可）
-extern int pixel_buffer_start;
-extern char ps2_keyboard_code;  // 如果在别的 .c 里有定义，则这里用 extern
+int pixel_buffer_start;
+char ps2_keyboard_code;  // 如果在别的 .c 里有定义，则这里用 extern
 
 int main(void) {
     // 1) 初始化 PS/2 键盘
@@ -8677,13 +8683,6 @@ void plot_pixel(int x, int y, short int color) {
   *pixel_ptr = color;
 }
 
-
-
-void plot_pixel(int x, int y, short int color) {
-  volatile short int *pixel_ptr =
-      (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
-  *pixel_ptr = color;
-}
 
 void initPS2Keyboard(void) {
     volatile int *PS2_ptr = (int *)PS2_BASE;

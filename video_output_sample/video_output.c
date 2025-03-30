@@ -34,6 +34,7 @@ int main(void) {
     short background_color = resample_rgb(db, INTEL_BLUE);
     video_text(35, 29, text_top_row);
     video_text(32, 30, text_bottom_row);
+    video_picture(0, 0, 320, 240, (short *)FPGA_PIXEL_BUF_BASE);
     video_box(0, 0, STANDARD_X, STANDARD_Y, 0); // clear the screen
     video_box(31 * 4, 28 * 4, 49 * 4 - 1, 32 * 4 - 1, background_color);
 }
@@ -120,4 +121,22 @@ int get_data_bits(int mode) {
         return 40;
     }
     return -1; // error
+}
+
+void video_picture(int x, int y, int width, int height, short * picture) {
+    int pixel_buf_ptr = *(int *)PIXEL_BUF_CTRL_BASE;
+    int pixel_ptr, row, col;
+    int x_factor = 0x1 << (res_offset + col_offset);
+    int y_factor = 0x1 << (res_offset);
+    x = x / x_factor;
+    y = y / y_factor;
+    width = width / x_factor;
+    height = height / y_factor;
+    for (row = y; row < y + height; row++)
+        for (col = x; col < x + width; col++) {
+        pixel_ptr = pixel_buf_ptr +
+        (row << (10 - res_offset - col_offset)) + (col << 1);
+        *(short *)pixel_ptr = *picture; // set pixel color
+        picture++;
+    }
 }
