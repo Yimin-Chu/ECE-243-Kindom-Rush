@@ -14,18 +14,17 @@ typedef struct {
     int y;
 } Coordinate;
 
-Coordinate block_positions[11] = {
-    {4, 37},  // Block 1
-    {4, 85},  // Block 2
-    {4, 133},  // Block 3
-    {74, 60},  // Block 4
-    {74, 107},  // Block 5
-    {74, 154},  // Block 6
-    {147, 60}, // Block 7
-    {147, 107}, // Block 8
-    {220, 60}, // Block 9
-    {220, 107}, // Block 10
-    {220, 154}  // Block 11
+Coordinate block_positions[10] = {
+    {7, 39},  // Block 1
+    {7, 93},  // Block 2
+    {7, 137},  // Block 3
+    {80, 60},  // Block 4
+    {80, 109},  // Block 5
+    {80, 158},  // Block 6
+    {155, 72}, // Block 7
+    {155, 137}, // Block 8
+    {235, 60}, // Block 9
+    {235, 109}, // Block 10
 };
 
 extern int pixel_buffer_start;
