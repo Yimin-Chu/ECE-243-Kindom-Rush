@@ -134,7 +134,6 @@ int main(void)
     // 不再进行任何后端指针设置，不做双缓冲交换
 
     // ========== 2) 等待用户按下 Enter ==========
-    initPS2Keyboard(); // 初始化键盘
 
     while (1)
     {
@@ -154,9 +153,8 @@ int main(void)
     pixel_buffer_start = *pixel_ctrl_ptr; // 现在“前端”=Buffer1
 
     // ======= 2) 在“前端(=Buffer1)”里绘制背景+塔 =======
-    plot_image_background(0, 0);
+    plot_image_game(0, 0);
     plot_image_tower1(100, 200);
-    plot_image_tower2(100,200);
 
     // ... 如果有其他静态元素，也在这儿画
 

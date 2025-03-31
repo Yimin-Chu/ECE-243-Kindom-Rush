@@ -1,8 +1,8 @@
 INSTALL	:= C:/intelFPGA_lite/23.1std
 
-MAIN	:= m2.c
-HDRS	:= ps2_keyboard.h plot_image.h address_map_nios_v.h 
-SRCS	:= ps2_keyboard.c plot_image.c
+MAIN	:= keyboard_implement_testing.c
+HDRS	:= address_map_nios_v.h plot_image.h ps2_keyboard.h 
+SRCS	:= keyboard_implement_testing.c plot_image.c ps2_keyboard.c
 
 SHELL	:= cmd.exe
 
@@ -20,7 +20,7 @@ export PATH := $(INSTALL)/quartus/bin64/:$(PATH)
 export PATH := $(INSTALL)/qprogrammer/quartus/bin64/:$(PATH)
 # for GDB server
 export PATH := $(INSTALL)/riscfree/debugger/gdbserver-riscv/:$(PATH)
-# for GDB client
+# for GDB clientLDFLAGS
 export PATH := $(INSTALL)/riscfree/toolchain/riscv32-unknown-elf/bin/:$(PATH)
 # for the nios2-terminal
 export PATH := $(INSTALL)/fpgacademy/AMP/bin/:$(PATH)
@@ -39,11 +39,12 @@ RM	:= /usr/bin/rm -f
 
 # Flags
 USERCCFLAGS	:= -g -O1 -ffunction-sections -fverbose-asm -fno-inline -gdwarf-2 
-USERLDFLAGS	:= -Wl,--defsym=__stack_pointer$$=0x4000000 -Wl,--defsym  -Wl,JTAG_UART_BASE=0xff201000 -lm
-ARCHCCFLAGS	:= -march=rv32im_zicsr -mabi=ilp32
-ARCHLDFLAGS	:= -march=rv32im_zicsr -mabi=ilp32
+USERLDFLAGS := -Wl,--defsym=__stack_pointer$$=0x4000000 -Wl,--defsym=JTAG_UART_BASE=0xff201000
+ARCHCCFLAGS := -march=rv32imf_zicsr -mabi=ilp32f
+ARCHLDFLAGS := -march=rv32imf_zicsr -mabi=ilp32f
 CCFLAGS		:= -Wall -c $(USERCCFLAGS) $(ARCHCCFLAGS)
-LDFLAGS		:= $(USERLDFLAGS) $(ARCHLDFLAGS)
+LDFLAGS		:= $(USERLDFLAGS) $(ARCHLDFLAGS) -lm
+
 
 # Files
 OBJS		:= $(patsubst %, %.o, $(SRCS))
@@ -90,7 +91,7 @@ $(basename $(MAIN)).elf: $(OBJS)
 	$(DEF_TEXT)
 	@echo $(LDFLAGS) $(OBJS) -o $@
 	@$(BASH) 'printf "\n"'
-	@$(BASH) 'cd "$(CURDIR)"; $(CYGWIN_PATH); $(LD) $(LDFLAGS) $(OBJS) -o $@'
+	@$(BASH) 'cd "$(CURDIR)"; $(CYGWIN_PATH); $(LD) $(LDFLAGS) $(OBJS) -lm -o $@
 
 %.c.o: %.c $(HDRS)
 	@$(BASH) 'cd "$(CURDIR)"; $(RM) $@'
