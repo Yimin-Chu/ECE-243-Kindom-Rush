@@ -89,3 +89,13 @@ void plot_pixel(int x, int y, short int color) {
         (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
     *pixel_ptr = color;
   }
+
+//wait for vsync function
+void wait_for_vsync()
+{
+    volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
+    *pixel_ctrl_ptr = 1; // 发出交换缓冲区请求
+    while ((*(pixel_ctrl_ptr + 3)) & 0x01)
+        ; // 等待 S 位清零
+    // 完成后, 前端与后端已交换
+}

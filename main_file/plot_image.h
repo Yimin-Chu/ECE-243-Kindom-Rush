@@ -22,5 +22,5 @@ void plot_image_monster(int x, int y);
 void erase_image_monster(int x, int y);
 
 void plot_pixel(int x, int y, short int color);
-
+void wait_for_vsync();
 #endif
