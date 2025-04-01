@@ -77,7 +77,7 @@ void clear_drawn_pixels()
             int x = drawnPixels1[i].x;
             int y = drawnPixels1[i].y;
             volatile short int *pixel_addr = (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
-            *pixel_addr = 0x8221; // 棕色
+            *pixel_addr = 0x6600; // 棕色
         }
         drawnPixelCount1 = 0;
     }
@@ -88,7 +88,7 @@ void clear_drawn_pixels()
             int x = drawnPixels2[i].x;
             int y = drawnPixels2[i].y;
             volatile short int *pixel_addr = (volatile short int *)(pixel_buffer_start + (y << 10) + (x << 1));
-            *pixel_addr = 0x8221;
+            *pixel_addr = 0x6600;
         }
         drawnPixelCount2 = 0;
     }

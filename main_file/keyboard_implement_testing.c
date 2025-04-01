@@ -2,19 +2,19 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-// Include all necessary header files
+// 包含所有必要的头文件
 #include "address_map_nios_v.h"
 #include "ps2_keyboard.h"
 #include "plot_image.h"
 #include "monster_moving.h"
 
-// Define the coordinate structure for tower placement
+// 坐标结构体（用于塔放置）
 typedef struct {
     int x;
     int y;
 } Coordinate;
 
-// Predefined tower positions
+// 预定义塔的位置（固定）
 Coordinate block_positions[10] = {
     {7, 39},    // Block 1
     {7, 88},    // Block 2
@@ -28,106 +28,97 @@ Coordinate block_positions[10] = {
     {235, 109}  // Block 10
 };
 
-
-// Assume pixel_buffer_start is defined elsewhere (e.g., in plot_image.c)
 extern int pixel_buffer_start;
 bool released = false;
 
-// Monster initial position and movement state
-int monster_x = 49;   // Starting X (left-bottom of road)
-int monster_y = 180;  // Starting Y
-int dx = 0, dy = 0;   // Movement direction (will be set in update_monster_position)
+// 定义一个数组记录每个塔是否放置，初始全部为 false
+bool tower_placed[10] = { false };
+
+// 怪物初始位置及运动状态（根据你的棕色道路的起点调整）
+int monster_x = 49;    // 起始 X 坐标
+int monster_y = 180;   // 起始 Y 坐标
+int dx = 0, dy = 0;    // 初始方向，由 update_monster_position() 更新
 bool monster_finished = false;
 
-
 int main(void) {
-    // 1) Initialize the PS/2 keyboard
+    // 1) 初始化 PS/2 键盘
     initPS2Keyboard();
 
-    // 2) Get pointer to pixel controller memory
+    // 2) 获取显存控制器指针
     volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
-    // Initially use single-buffering: point to Buffer1
-    // *pixel_ctrl_ptr = (int)&Buffer1[0];
     pixel_buffer_start = *pixel_ctrl_ptr;
     
-    // 3) Draw the Intro screen
+    // 3) 显示 Intro 画面
     plot_image_intro(0, 0);
 
-    // 4) Wait for the user to press Enter (scan code 0x5A)
+    // 4) 等待用户按下 Enter（扫描码 0x5A）
     char code;
     while (1) {
-        // Call readPS2ScanCode() to update the global ps2_keyboard_code
         code = readPS2ScanCode();
         if (code == 0x5A) {
-            // Once Enter is pressed, switch to game screen (background with brown road)
-            //plot_image_game(0, 0);
             break;
         }
     }
 
-    // 5) Initialize double buffering:
-    // Set front buffer pointer to Buffer1 and wait for vsync
+    // 5) 初始化双缓冲：
+    // 设置前缓冲区为 Buffer1 并调用 wait_for_vsync() 交换缓冲区，
+    // 然后在前缓冲区绘制静态背景（包含棕色道路等）
     *(pixel_ctrl_ptr + 1) = (int)&Buffer1[0];
-    wait_for_vsync();  // Wait for vertical sync to complete the swap
-    pixel_buffer_start = *pixel_ctrl_ptr;  // Now front buffer is Buffer1
+    wait_for_vsync();
+    pixel_buffer_start = *pixel_ctrl_ptr;
+    plot_image_game(0, 0);  // 绘制静态背景
 
-    // Draw static elements (background, towers) on the front buffer
-    plot_image_game(0, 0);
-
-
-
-    // Set back buffer pointer to Buffer2 and draw identical static elements
+    // 设置后缓冲区为 Buffer2，并在后缓冲区预绘制静态背景
     *(pixel_ctrl_ptr + 1) = (int)&Buffer2[0];
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);
     plot_image_game(0, 0);
-    // Optionally, add other static elements (e.g., plot_image_tower2)
 
-    // 6) Enter main loop: process monster movement and tower placement concurrently
+    // 6) 进入主循环：每帧先重绘背景，再绘制静态塔和动态怪物
     while (1) {
-        // Set back buffer as the current drawing target
+        // 将后缓冲区设为当前绘图目标
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
-
-        // --- Monster Movement ---
+        
+        // --- 重绘静态背景 ---
+        plot_image_game(0, 0);
+        
+        // --- 绘制所有已放置的塔 ---
+        for (int i = 0; i < 10; i++) {
+            if (tower_placed[i]) {
+                plot_image_tower1(block_positions[i].x, block_positions[i].y);
+            }
+        }
+        
+        // --- 动态元素：怪物运动 ---
         if (!monster_finished) {
-            // Erase the previous monster image from the back buffer
-            clear_drawn_pixels();
-            // Update monster position (this function should change dx/dy as needed based on path)
             update_monster_position(&monster_x, &monster_y, &dx, &dy);
-            // Check if monster has reached the finish line (adjust condition based on your road)
-            if (monster_x > 280) {  
+            if (monster_x > 260) {  // 根据实际情况调整终点条件
                 monster_finished = true;
             } else {
-                // Draw the monster at its new position
-                
                 plot_image_monster(monster_x, monster_y);
             }
         }
-
-        // --- Tower Placement ---
-        // Read the PS/2 scan code (this call updates the global variable ps2_keyboard_code)
-        // In main loop...
-        char code = readPS2ScanCode();
+        
+        // --- 处理键盘输入：塔的放置 ---
+        // 使用非阻塞方式读取键盘扫描码，若没有新数据则返回 0
+        code = readPS2ScanCode();
         if (code != 0) {
-            // Process the key
             if (code == 0xF0) {
                 released = true;
             } else {
                 if (!released) {
                     int block_idx = get_block_index_from_scan_code(code);
                     if (block_idx >= 0 && block_idx < 10) {
-                        Coordinate pos = block_positions[block_idx];
-                        plot_image_tower1(pos.x, pos.y);
+                        // 将对应塔标记为已放置，使其在后续帧中一直绘制
+                        tower_placed[block_idx] = true;
                     }
                 }
                 released = false;
             }
         }
-
-
-        // --- Swap Buffers ---
+        
+        // --- 交换缓冲区 ---
         wait_for_vsync();
-        // After vsync, the back buffer becomes the front buffer.
-        // Continue drawing on the new back buffer in the next iteration.
+        // 交换后，后缓冲区完整画面将显示到屏幕上，下一帧继续在新后缓冲区绘制
     }
 
     return 0;
