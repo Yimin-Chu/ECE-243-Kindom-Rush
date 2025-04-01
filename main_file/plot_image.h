@@ -7,7 +7,7 @@
 extern short unsigned int intro[76800];
 extern short unsigned int tower1[1225];
 extern short unsigned int game[76800];
-extern short unsigned int monster[676];
+extern short unsigned int monster[625];
 
 void plot_image_game(int x, int y);
 void erase_image_game(int x, int y);

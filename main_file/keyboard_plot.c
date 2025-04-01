@@ -164,8 +164,7 @@ int main(void)
 
     // 在“后端(=Buffer2)”里也绘制背景+塔
     plot_image_background(0, 0);
-    plot_image_tower1(100, 200);
-    plot_image_tower2(100, 200);
+
 
     // ========== 初始化盒子 ==========
     // 初始都放在坐标 (280 - BOX_SIZE - 2, 80 - BOX_SIZE - 2) 等位置，
