@@ -4,6 +4,8 @@
 // Define the global variable declared in the header
 volatile char ps2_keyboard_code = 0;
 
+
+
 void initPS2Keyboard(void) {
     volatile int *PS2_ptr = (int *)PS2_BASE;
     *PS2_ptr = 0xFF;  // Send reset command
