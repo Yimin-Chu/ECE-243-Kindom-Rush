@@ -75,21 +75,53 @@ static short int colors[NUM_BOXES] = {
 int num_draw_box = 0; // 当前实际出现的怪兽盒子数
 int frame_count = 0;  // 帧计数
 
-/*
- * 获取当前第一个存活的怪兽索引
- * 若没有存活怪兽，则返回 -1
- */
-int get_first_alive_monster(void)
+
+//有效距离 子弹
+#define Tower_RANGE 100 // 子弹有效射程
+
+//怪物的生命值
+int monster_health[NUM_BOXES];
+
+void init_monster(mons *box, int index)
 {
-    for (int i = 0; i < num_draw_box; i++)
-    {
-        if (boxes[i].alive)
-        {
-            return i;
-        }
-    }
-    return -1;
+    box->x = 49; // 初始位置
+    box->y = 180;
+    box->dx = 0; // 水平移动方向
+    box->dy = -1; // 垂直移动方向
+    box->color = colors[index]; // 颜色
+    box->alive = true; // 初始存活状态
+    box->killed = false; // 初始未被击杀状态
+    box->finished = false; // 初始未完成状态
+    monster_health[index] = 2; // 生命值
 }
+
+//重置
+void reset_all_monsters(void)
+{
+    for (int i = 0; i < NUM_BOXES; i++)
+    {
+        init_monster(&boxes[i], i);
+    }
+    num_draw_box = 0;
+    frame_count = 0;
+}
+
+// 更新怪兽位置
+// void update_monster_position(mons* box)
+// {
+//     for (int i = 0; i < num_draw_box; i++)
+//     {
+//         boxes[i].x += boxes[i].dx;
+//         boxes[i].y += boxes[i].dy;
+//         if(boxes[i].x >= 252)
+//         {
+//             boxes[i].alive = false;
+//             boxes[i].finished = true; // 标记为完成
+//             boxes[i].x=0;
+//         }
+//     }
+// }
+
 
 // ========== 子弹相关 ==========
 
@@ -112,91 +144,104 @@ static Bullet bullets[MAX_BULLETS]; // 全局子弹数组
  * 从指定塔 (tower_index) 发射一颗子弹，
  * 目标为当前第一个存活怪兽（通过 get_first_alive_monster() 获取）。
  */
-void spawn_bullet(int tower_index)
-{
-    int target_index = get_first_alive_monster();
+void spawn_bullet(int tower_index) {
+    int target_index = -1;
+    // 遍历所有怪兽，选择一个在有效射程内且存活的
+    for (int i = 0; i < num_draw_box; i++) {
+        if (boxes[i].alive) {
+            // 计算塔中心（塔坐标 +30, +30）
+            int tower_cx = block_positions[tower_index].x + 30;
+            int tower_cy = block_positions[tower_index].y + 30;
+            // 目标怪兽中心
+            int monster_cx = boxes[i].x + BOX_SIZE/2;
+            int monster_cy = boxes[i].y + BOX_SIZE/2;
+            int dx = monster_cx - tower_cx;
+            int dy = monster_cy - tower_cy;
+            float dist = sqrtf(dx*dx + dy*dy);
+            if (dist <= Tower_RANGE) {
+                target_index = i;
+                break;
+            }
+        }
+    }
     if (target_index == -1)
-        return; // 没有存活怪兽则不发射
+        return; // 没有有效目标则不发射
 
-    for (int i = 0; i < MAX_BULLETS; i++)
-    {
-        if (!bullets[i].active)
-        {
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        if (!bullets[i].active) {
             bullets[i].active = true;
             bullets[i].tower_index = tower_index;
             bullets[i].target_monster_index = target_index;
-            // 子弹起始位置：塔的位置
-            bullets[i].x = block_positions[tower_index].x;
-            bullets[i].y = block_positions[tower_index].y;
-            bullets[i].speed = 5.0f; // 可根据需要调整速度
-            // 初始目标位置：目标怪兽中心
-            bullets[i].target_x = boxes[target_index].x + BOX_SIZE / 2;
-            bullets[i].target_y = boxes[target_index].y + BOX_SIZE / 2;
+            // 子弹起始位置：塔中心
+            bullets[i].x = block_positions[tower_index].x + 30;
+            bullets[i].y = block_positions[tower_index].y + 30;
+            bullets[i].speed = 5.0f;  // 可调
+            // 目标为目标怪兽中心
+            bullets[i].target_x = boxes[target_index].x + BOX_SIZE/2;
+            bullets[i].target_y = boxes[target_index].y + BOX_SIZE/2;
             break;
         }
     }
 }
 
-/*
- * update_bullets:
- * 每帧调用，更新所有激活子弹的位置，并检测是否命中目标。
- * 如果目标怪兽不存活，则重新选择一个目标（如果有）。
- */
-void update_bullets(void)
-{
-    for (int i = 0; i < MAX_BULLETS; i++)
-    {
-        if (bullets[i].active)
-        {
+// update_bullets: 每帧更新激活的子弹，并判断是否命中目标
+void update_bullets(void) {
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        if (bullets[i].active) {
             int target_index = bullets[i].target_monster_index;
-            // 如果目标不再存活，则尝试重新获取目标
-            if (target_index >= num_draw_box || !boxes[target_index].alive)
-            {
-                target_index = get_first_alive_monster();
-                if (target_index == -1)
-                { // 没有存活怪兽
+            // 如果目标不存活，则尝试重新选择
+            if (target_index >= num_draw_box || !boxes[target_index].alive) {
+                target_index = -1;
+                for (int j = 0; j < num_draw_box; j++) {
+                    if (boxes[j].alive) {
+                        // 检查距离是否在射程内
+                        int tower_cx = block_positions[bullets[i].tower_index].x + 30;
+                        int tower_cy = block_positions[bullets[i].tower_index].y + 30;
+                        int monster_cx = boxes[j].x + BOX_SIZE/2;
+                        int monster_cy = boxes[j].y + BOX_SIZE/2;
+                        int dx = monster_cx - tower_cx;
+                        int dy = monster_cy - tower_cy;
+                        float dist = sqrtf(dx*dx + dy*dy);
+                        if (dist <= Tower_RANGE) {
+                            target_index = j;
+                            break;
+                        }
+                    }
+                }
+                if (target_index == -1) {
                     bullets[i].active = false;
                     continue;
                 }
                 bullets[i].target_monster_index = target_index;
             }
-
-            // 更新目标位置为怪兽中心
-            bullets[i].target_x = boxes[target_index].x + BOX_SIZE / 2;
-            bullets[i].target_y = boxes[target_index].y + BOX_SIZE / 2;
-
-            // 计算子弹与目标之间的距离
+            // 更新目标位置
+            bullets[i].target_x = boxes[target_index].x + BOX_SIZE/2;
+            bullets[i].target_y = boxes[target_index].y + BOX_SIZE/2;
+            // 计算距离
             float dx = bullets[i].target_x - bullets[i].x;
             float dy = bullets[i].target_y - bullets[i].y;
-            float dist = sqrtf(dx * dx + dy * dy);
-
-
-            // 如果子弹足够接近目标，则视为命中
-            if (dist < 5.0f)
-            {
+            float dist = sqrtf(dx*dx + dy*dy);
+            if (dist < 5.0f) {  // 命中目标
                 bullets[i].active = false;
-                // 命中后将目标怪兽标记为死亡
-                boxes[target_index].alive = false;
-                boxes[target_index].killed = true; // 标记为被击杀
-                // 这里可以添加其他命中效果，比如扣血、播放动画等
-                boxes[target_index].finished = false; // 标记为完成
+                // 扣除怪兽健康值
+                monster_health[target_index]--;
+                if (monster_health[target_index] <= 0) {
+                    boxes[target_index].alive = false;
+                    boxes[target_index].killed = true;
+                    boxes[target_index].finished = false;
+                }
                 continue;
             }
-
-
-
-            // 归一化方向向量并更新子弹位置
+            // 归一化方向并更新位置
             float nx = dx / dist;
             float ny = dy / dist;
             bullets[i].x += nx * bullets[i].speed;
             bullets[i].y += ny * bullets[i].speed;
-
-            // 绘制子弹（用 plot_dynamic_pixel 绘制一个像素）
+            // 绘制子弹（调用动态像素绘制函数）
             plot_dynamic_pixel((int)bullets[i].x, (int)bullets[i].y, 0xFFFF);
         }
     }
 }
-
 
 
 int main(void)
@@ -237,18 +282,13 @@ int main(void)
     plot_image_game(0, 0);
     plot_digit(302, 62, blood); // 绘制生命值
 
-    // 初始化怪兽盒子的初始位置及运动状态，并标记为存活
-    for (int i = 0; i < NUM_BOXES; i++)
+    //初始化怪兽
+    for(int i = 0; i < NUM_BOXES; i++)
     {
-        boxes[i].x = 49;
-        boxes[i].y = 180;
-        boxes[i].dx = 0;
-        boxes[i].dy = -1;
-        boxes[i].color = colors[i];
-        boxes[i].alive = true;
-        boxes[i].killed = false;
-        boxes[i].finished = false;
+        init_monster(&boxes[i], i);
     }
+    num_draw_box = 0; // 当前实际出现的怪兽数
+    frame_count = 0; // 帧计数
 
     // 主循环：每帧更新背景、怪兽、塔、子弹等
     while (1)
@@ -300,12 +340,14 @@ int main(void)
             {
                 decrease_blood(); // 生命值减少
                 boxes[i].finished = false; // 重置完成状态
+                init_monster(&boxes[i], i); // 重置怪兽
             }
             if (boxes[i].killed)
             {
                 add_coin(); // 击杀怪兽后增加金币
                 boxes[i].killed = false; // 重置击杀状态
                 //重置
+                init_monster(&boxes[i], i); // 重置怪兽
             }
         }
 
@@ -355,6 +397,10 @@ int main(void)
 
         // --- 交换缓冲区 ---
         wait_for_vsync();
+    }
+
+    if (blood==0){
+        plot_image_over(0, 0); // 绘制游戏结束画面
     }
 
     return 0;
