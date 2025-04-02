@@ -397,11 +397,21 @@ int main(void)
 
         // --- 交换缓冲区 ---
         wait_for_vsync();
+        if(blood==0)
+        {
+            break; // 生命值为0，退出循环
+        }
     }
 
-    if (blood==0){
-        plot_image_over(0, 0); // 绘制游戏结束画面
-    }
+    // 游戏结束，绘制游戏结束画面
+    // 交换缓冲区，显示游戏结束画面
+    *(pixel_ctrl_ptr + 1) = (int)&Buffer2[0];
+    pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+       plot_image_over(0, 0); // 绘制游戏结束画面
+        while (1) {
+            wait_for_vsync();  // 保持当前画面不变
+        }
+    
 
     return 0;
 }
