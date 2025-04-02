@@ -179,6 +179,7 @@ void update_bullets(void)
                 boxes[target_index].alive = false;
                 boxes[target_index].killed = true; // 标记为被击杀
                 // 这里可以添加其他命中效果，比如扣血、播放动画等
+                boxes[target_index].finished = false; // 标记为完成
                 continue;
             }
 
@@ -203,7 +204,7 @@ int main(void)
     // 1) 初始化 PS/2 键盘
     initPS2Keyboard();
 
-    display_3digits_on_HEX(coin); // 初始化显示 100 个金币
+    display_3digits_on_HEX(coin); // 初始化显示 40 个金币
 
 
     // 2) 获取显存控制器指针
@@ -289,16 +290,16 @@ int main(void)
                     plot_image_monster(boxes[i].x, boxes[i].y);
                 }
             }
-            if (boxes[i].x > 250)
+            if (boxes[i].x >= 252)
             {
                 boxes[i].alive = false;
-                boxes[i].finished = true;
+                boxes[i].finished = true; // 标记为完成
+                boxes[i].x=0;
             }
-            if (boxes[i].finished)
+            if(boxes[i].finished)
             {
-                decrease_blood(); // 生命值减1
-                boxes[i].finished = false; // 重置怪兽状态
-                //重置怪兽状态
+                decrease_blood(); // 生命值减少
+                boxes[i].finished = false; // 重置完成状态
             }
             if (boxes[i].killed)
             {

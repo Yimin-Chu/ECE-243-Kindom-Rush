@@ -60,8 +60,9 @@ void draw_blood(void) {
 
 // 当怪物到达终点时调用，血量减1并重绘
 void decrease_blood(void) {
-    if (blood > 0) {
-        blood--;
+    blood= blood - 1; // 减少血量
+    if (blood < 0) {
+        blood = 0; // 确保血量不小于 0
     }
-    plot_digit(BLOOD_X, BLOOD_Y, blood); // 更新显示
+    
 }

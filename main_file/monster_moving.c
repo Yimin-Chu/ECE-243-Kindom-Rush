@@ -35,6 +35,11 @@ void update_monster_position(int *x, int *y, int *dx, int *dy) {
         *dx = 1; // 向右
         *dy = 0; // 向下
     }
+    else if(*x == 252 && *y == 27){
+        *dx = 0; // 向右
+        *dy = 0; // 向下
+    }
+
 
     //delay
     for(int i = 0; i < 50000; i++); // 延时循环
