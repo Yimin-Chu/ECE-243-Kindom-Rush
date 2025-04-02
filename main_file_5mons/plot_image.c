@@ -3,6 +3,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "plot_image.h"
+#include <stdbool.h>
 
 int pixel_buffer_start;
 
@@ -164,4 +165,47 @@ void wait_for_vsync()
     while ((*(pixel_ctrl_ptr + 3)) & 0x01)
         ; // 等待 S 位清零
     // 完成后, 前端与后端已交换
+}
+
+// Bresenham 画线
+void draw_line(int x0, int y0, int x1, int y1, short int color)
+{
+    bool is_steep = (abs(y1 - y0) > abs(x1 - x0));
+    if (is_steep)
+    {
+        int temp = x0;
+        x0 = y0;
+        y0 = temp;
+        temp = x1;
+        x1 = y1;
+        y1 = temp;
+    }
+    if (x0 > x1)
+    {
+        int temp = x0;
+        x0 = x1;
+        x1 = temp;
+        temp = y0;
+        y0 = y1;
+        y1 = temp;
+    }
+    int deltax = x1 - x0;
+    int deltay = abs(y1 - y0);
+    int error = -(deltax / 2);
+    int y = y0;
+    int y_step = (y0 < y1) ? 1 : -1;
+
+    for (int x = x0; x <= x1; x++)
+    {
+        if (is_steep)
+            plot_dynamic_pixel(y, x, color);
+        else
+            plot_dynamic_pixel(x, y, color);
+        error += deltay;
+        if (error > 0)
+        {
+            y += y_step;
+            error -= deltax;
+        }
+    }
 }

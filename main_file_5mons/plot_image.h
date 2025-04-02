@@ -44,5 +44,6 @@ extern int drawnPixelCount2;
 
 void clear_drawn_pixels();
 void plot_dynamic_pixel(int x, int y, short int color);
+void draw_line(int x0, int y0, int x1, int y1, short int color);
 
 #endif
