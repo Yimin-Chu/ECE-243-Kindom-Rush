@@ -39,6 +39,7 @@ Pixel drawnPixels1[MAX_DRAWN_PIXELS]; // 针对 Buffer1
 int drawnPixelCount1 = 0;
 Pixel drawnPixels2[MAX_DRAWN_PIXELS]; // 针对 Buffer2
 int drawnPixelCount2 = 0;
+
 // 绘制一个像素并记录坐标
 void plot_dynamic_pixel(int x, int y, short int color)
 {

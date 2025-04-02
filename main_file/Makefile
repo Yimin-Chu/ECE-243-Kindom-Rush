@@ -1,8 +1,8 @@
 INSTALL	:= C:/intelFPGA_lite/23.1std
 
 MAIN	:= keyboard_implement_testing.c
-HDRS	:= address_map_nios_v.h plot_image.h ps2_keyboard.h monster_moving.h
-SRCS	:= keyboard_implement_testing.c plot_image.c ps2_keyboard.c monster_moving.c
+HDRS	:= address_map_nios_v.h plot_image.h ps2_keyboard.h monster_moving.h blood.h coin.h
+SRCS	:= keyboard_implement_testing.c plot_image.c ps2_keyboard.c monster_moving.c blood.c coin.c
 
 SHELL	:= cmd.exe
 
