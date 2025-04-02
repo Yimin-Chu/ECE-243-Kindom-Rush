@@ -37,7 +37,7 @@ void update_monster_position(int *x, int *y, int *dx, int *dy) {
     }
 
     //delay
-    for(int i = 0; i < 500000; i++); // 延时循环
+    for(int i = 0; i < 50000; i++); // 延时循环
     // 4) 移动坐标
     *x += *dx;
     *y += *dy;

@@ -170,15 +170,19 @@ void update_bullets(void)
             float dy = bullets[i].target_y - bullets[i].y;
             float dist = sqrtf(dx * dx + dy * dy);
 
+
             // 如果子弹足够接近目标，则视为命中
             if (dist < 5.0f)
             {
                 bullets[i].active = false;
                 // 命中后将目标怪兽标记为死亡
                 boxes[target_index].alive = false;
+                boxes[target_index].killed = true; // 标记为被击杀
                 // 这里可以添加其他命中效果，比如扣血、播放动画等
                 continue;
             }
+
+
 
             // 归一化方向向量并更新子弹位置
             float nx = dx / dist;
@@ -285,7 +289,7 @@ int main(void)
                     plot_image_monster(boxes[i].x, boxes[i].y);
                 }
             }
-            if (boxes[i].x > 260)
+            if (boxes[i].x > 250)
             {
                 boxes[i].alive = false;
                 boxes[i].finished = true;
@@ -293,11 +297,13 @@ int main(void)
             if (boxes[i].finished)
             {
                 decrease_blood(); // 生命值减1
+                boxes[i].finished = false; // 重置怪兽状态
                 //重置怪兽状态
             }
             if (boxes[i].killed)
             {
                 add_coin(); // 击杀怪兽后增加金币
+                boxes[i].killed = false; // 重置击杀状态
                 //重置
             }
         }
